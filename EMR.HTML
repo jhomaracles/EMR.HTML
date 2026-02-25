@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Benguet Lab | Enterprise EMR v11.7</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb; --primary-light: #dbeafe; --accent: #facc15;
+            --bg: #f8fafc; --sidebar: #0f172a; --card: #ffffff;
+            --text-main: #0f172a; --text-muted: #64748b; --success: #10b981;
+            --danger: #ef4444; --warning: #f59e0b; --border: #e2e8f0; --radius: 16px;
+        }
+        [data-theme="dark"] {
+            --bg: #020617; --sidebar: #000000; --card: #1e293b;
+            --text-main: #f1f5f9; --text-muted: #94a3b8; --border: #334155;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
+        body { background: var(--bg); color: var(--text-main); display: flex; min-height: 100vh; }
+
+        nav { width: 280px; background: var(--sidebar); color: white; position: fixed; height: 100vh; padding: 20px; z-index: 1000; }
+        .logo { padding: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 20px; }
+        nav ul { list-style: none; }
+        nav ul li { 
+            padding: 14px 20px; margin-bottom: 5px; cursor: pointer; border-radius: 12px; 
+            display: flex; align-items: center; gap: 15px; font-weight: 600; color: #94a3b8; transition: 0.3s;
+        }
+        nav ul li.active { background: var(--primary); color: white; }
+
+        main { flex-grow: 1; margin-left: 280px; padding: 30px; width: calc(100% - 280px); }
+        header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+
+        .glass-panel { background: var(--card); border-radius: var(--radius); border: 1px solid var(--border); overflow: hidden; margin-bottom: 25px; }
+        .panel-header { padding: 15px 20px; background: rgba(0,0,0,0.01); border-bottom: 1px solid var(--border); font-weight: 800; color: var(--primary); font-size: 0.75rem; text-transform: uppercase; }
+        
+        .form-row { display: flex; gap: 10px; padding: 20px; flex-wrap: wrap; }
+        input, select, textarea { padding: 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text-main); flex: 1; min-width: 150px; }
+        
+        .btn-main { background: var(--primary); color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; }
+        .badge { padding: 4px 8px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; }
+
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 15px 20px; background: rgba(0,0,0,0.02); font-size: 0.7rem; color: var(--text-muted); }
+        td { padding: 15px 20px; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1999; display: none; backdrop-filter: blur(4px); }
+        #history-view { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; height: 85%; background: var(--bg); border-radius: var(--radius); z-index: 2000; display: none; padding: 30px; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2); }
+
+        #pdf-template { position: absolute; left: -9999px; width: 800px; padding: 50px; background: white; color: black; }
+    </style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="closeHistory()"></div>
+<div id="history-view">
+    <div style="display:flex; justify-content:space-between; margin-bottom:20px;">
+        <h2 id="hist-name">Patient Profile</h2>
+        <button onclick="closeHistory()" class="btn-main" style="background:var(--danger)">Close</button>
+    </div>
+    <div id="hist-content"></div>
+</div>
+
+<nav>
+    <div class="logo">
+        <h2 style="color:var(--accent);">BENGUET LAB</h2>
+        <p style="font-size: 0.6rem; opacity: 0.5;">v11.7 ENTERPRISE EMR</p>
+    </div>
+    <ul>
+        <li onclick="showSection('dashboard')" id="nav-dashboard" class="active"><i class="fa-solid fa-house"></i> Dashboard</li>
+        <li onclick="showSection('patients')" id="nav-patients"><i class="fa-solid fa-users"></i> Patients</li>
+        <li onclick="showSection('appointments')" id="nav-appointments"><i class="fa-solid fa-calendar-check"></i> Scheduler</li>
+        <li onclick="showSection('lab-results')" id="nav-lab-results"><i class="fa-solid fa-vial"></i> Lab Reports</li>
+        <li onclick="showSection('billing')" id="nav-billing"><i class="fa-solid fa-receipt"></i> Billing</li>
+        <li onclick="showSection('staff')" id="nav-staff"><i class="fa-solid fa-user-doctor"></i> Staff Hub</li>
+    </ul>
+</nav>
+
+<main>
+    <header>
+        <h1 id="page-title" style="font-size: 1.4rem; font-weight: 800;">Dashboard</h1>
+        <div style="text-align: right;">
+            <p id="digitalClock" style="font-weight: 800; color: var(--primary); font-size: 1.1rem;">00:00:00</p>
+            <p id="digitalDate" style="font-size: 0.65rem; color: var(--text-muted); font-weight: 600;"></p>
+        </div>
+    </header>
+
+    <div id="dashboard" class="content-section active">
+        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:15px; margin-bottom:25px;">
+            <div class="glass-panel" style="padding:20px;"><p style="font-size:0.6rem; font-weight:800; color:var(--text-muted);">TODAY'S APPOINTMENTS</p><h2 id="stat-app">0</h2></div>
+            <div class="glass-panel" style="padding:20px;"><p style="font-size:0.6rem; font-weight:800; color:var(--text-muted);">ACTIVE STAFF</p><h2 id="stat-s">0</h2></div>
+            <div class="glass-panel" style="padding:20px;"><p style="font-size:0.6rem; font-weight:800; color:var(--text-muted);">TOTAL PATIENTS</p><h2 id="stat-p">0</h2></div>
+            <div class="glass-panel" style="padding:20px;"><p style="font-size:0.6rem; font-weight:800; color:var(--text-muted);">UNPAID BILLS</p><h2 id="stat-b">0</h2></div>
+        </div>
+        <div class="glass-panel">
+            <div class="panel-header">Today's Schedule</div>
+            <table id="todayTable">
+                <thead><tr><th>Time</th><th>Patient</th><th>Assigned Staff</th><th>Service</th></tr></thead>
+                <tbody id="todayBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="appointments" class="content-section">
+        <div class="glass-panel">
+            <div class="panel-header">Book Appointment</div>
+            <form id="appForm" class="form-row">
+                <select id="appPatient" required></select>
+                <select id="appStaff" required></select>
+                <input type="date" id="appDate" required>
+                <input type="time" id="appTime" required>
+                <input type="text" id="appService" placeholder="Purpose (e.g. Swab Test)" required>
+                <button type="submit" class="btn-main">Book Slot</button>
+            </form>
+        </div>
+        <div class="glass-panel">
+            <div class="panel-header">Master Calendar List</div>
+            <table id="appTable">
+                <thead><tr><th>Date</th><th>Time</th><th>Patient</th><th>Staff</th><th>Service</th><th>Action</th></tr></thead>
+                <tbody id="appTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="patients" class="content-section">
+        <div class="glass-panel">
+            <div class="panel-header">Register Patient</div>
+            <form id="pForm" class="form-row">
+                <input type="text" id="pName" placeholder="Full Patient Name" required>
+                <input type="text" id="pID" placeholder="ID / Phone" required>
+                <button type="submit" class="btn-main">Add Record</button>
+            </form>
+        </div>
+        <div class="glass-panel">
+            <table>
+                <thead><tr><th>Name (Click for History)</th><th>ID</th><th>Action</th></tr></thead>
+                <tbody id="pTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="staff" class="content-section">
+        <div style="display: grid; grid-template-columns: 350px 1fr; gap: 25px;">
+            <div style="display: flex; flex-direction: column; gap: 20px;">
+                <div class="glass-panel">
+                    <div class="panel-header">Clinic Settings</div>
+                    <div style="padding: 20px;">
+                        <div id="logo-preview" style="width: 100%; height: 100px; border: 2px dashed var(--border); border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg);">
+                            <i class="fa-solid fa-image" style="font-size: 2rem; opacity: 0.2;"></i>
+                        </div>
+                        <p style="font-size: 0.7rem; font-weight: 800; margin-bottom: 5px;">CLINIC LOGO</p>
+                        <input type="file" id="logoInput" accept="image/*" style="font-size: 0.75rem; width: 100%; margin-bottom: 10px;">
+                        <button class="btn-main" onclick="saveBranding()" style="width: 100%; background: var(--success);">Save Branding</button>
+                    </div>
+                </div>
+
+                <div class="glass-panel">
+                    <div class="panel-header" id="staff-form-title">Onboard Medical Staff</div>
+                    <form id="sForm" style="padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+                        <div id="staff-photo-preview" style="width: 80px; height: 80px; border-radius: 50%; border: 2px dashed var(--border); margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg); position: relative;">
+                            <i class="fa-solid fa-camera" style="opacity: 0.3;"></i>
+                        </div>
+                        <p style="font-size: 0.65rem; font-weight: 800; text-align: center; margin-top: -10px;">PROFILE PICTURE</p>
+                        <input type="file" id="sPhotoInput" accept="image/*" style="font-size: 0.7rem;">
+                        
+                        <input type="text" id="sName" placeholder="Full Name" required>
+                        <select id="sRole" required>
+                            <option value="">Select Specialization</option>
+                            <option value="Physician">Physician</option>                    
+                            <option value="Nurse">Nurse</option>
+                        </select>
+                        <input type="text" id="sLicense" placeholder="PRC License No." required>
+                        <button type="submit" id="staffSubmitBtn" class="btn-main" style="width: 100%;"><i class="fa-solid fa-user-plus"></i> Register Staff</button>
+                        <button type="button" id="cancelStaffEdit" onclick="resetStaffForm()" class="btn-main" style="width: 100%; background: var(--text-muted); display: none;">Cancel Edit</button>
+                    </form>
+                </div>
+            </div>
+            <div>
+                <div id="staff-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="lab-results" class="content-section">
+        <div class="glass-panel">
+            <div class="panel-header">New Lab Report</div>
+            <form id="resForm" class="form-row">
+                <select id="resPatient" required></select>
+                <select id="resStaff" required>
+                    <option value="">Select Verifying Staff</option>
+                </select>
+                <input type="text" id="resTest" placeholder="Test Name" style="flex:1;">
+                <textarea id="resFindings" placeholder="Findings..." style="width:100%; margin-top:10px; min-height:80px;"></textarea>
+                <button type="submit" class="btn-main">Save Lab</button>
+            </form>
+        </div>
+        <div class="glass-panel">
+            <table>
+                <thead><tr><th>Patient</th><th>Test</th><th>Verified By</th><th style="width:150px;">Action</th></tr></thead>
+                <tbody id="resTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="billing" class="content-section">
+        <div class="glass-panel">
+            <div class="panel-header">New Invoice</div>
+            <form id="billForm" class="form-row">
+                <select id="billPatient" required></select>
+                <input type="number" id="billAmount" placeholder="Amount (₱)">
+                <button type="submit" class="btn-main">Create Bill</button>
+            </form>
+        </div>
+        <div class="glass-panel"><table><thead><tr><th>Patient</th><th>Amount</th><th>Status</th></tr></thead><tbody id="billTableBody"></tbody></table></div>
+    </div>
+</main>
+
+<div id="pdf-template" style="font-family: Arial, sans-serif;">
+    <div style="text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 10px; margin-bottom: 20px;">
+        <div id="pdf-logo-container" style="margin-bottom: 10px;"></div>
+        <h1 style="color:#2563eb; margin:0; text-transform: uppercase;">BENGUET LABORATORY</h1>
+        <p style="font-size: 0.8rem; color: #666;">Baguio City, Philippines | Certified Medical Report</p>
+    </div>
+    
+    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+        <div>
+            <p><strong>PATIENT:</strong> <span id="pdf-pname"></span></p>
+            <p><strong>DATE:</strong> <span id="pdf-date"></span></p>
+        </div>
+        <div style="text-align: right;">
+            <p><strong>REF NO:</strong> LAB-<span id="pdf-rid"></span></p>
+        </div>
+    </div>
+
+    <div style="margin-bottom: 40px;">
+        <h3 style="background: #f1f5f9; padding: 10px; border-left: 5px solid #2563eb;">TEST: <span id="pdf-test"></span></h3>
+        <div style="padding: 15px; border: 1px solid #e2e8f0; min-height: 250px; margin-top: 10px;">
+            <p id="pdf-findings" style="white-space: pre-wrap; line-height: 1.6;"></p>
+        </div>
+    </div>
+
+    <div style="margin-top: 50px; display: flex; justify-content: flex-end;">
+        <div style="text-align: center; width: 250px;">
+            <div style="border-bottom: 1px solid #000; font-weight: 800; text-transform: uppercase;" id="pdf-sname"></div>
+            <p style="font-size: 0.8rem; margin: 2px 0;" id="pdf-srole"></p>
+            <p style="font-size: 0.8rem;">PRC License: <span id="pdf-slicense"></span></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let patients = JSON.parse(localStorage.getItem('bl11_p')) || [];
+    let staff = JSON.parse(localStorage.getItem('bl11_s')) || [{name: 'Dr. Carla', role: 'Pathologist', license: '12345', active: true, photo: ""}];
+    let appointments = JSON.parse(localStorage.getItem('bl11_a')) || [];
+    let results = JSON.parse(localStorage.getItem('bl11_r')) || [];
+    let bills = JSON.parse(localStorage.getItem('bl11_b')) || [];
+    let clinicLogo = localStorage.getItem('bl11_logo') || "";
+    
+    let tempStaffPhoto = "";
+    let editStaffIndex = null; 
+
+    function showSection(id) {
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('nav ul li').forEach(l => l.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        document.getElementById('nav-' + id).classList.add('active');
+        document.getElementById('page-title').innerText = id.toUpperCase();
+    }
+
+    document.getElementById('sPhotoInput').addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            tempStaffPhoto = reader.result;
+            document.getElementById('staff-photo-preview').innerHTML = `<img src="${tempStaffPhoto}" style="width:100%; height:100%; object-fit:cover;">`;
+        }
+        if(e.target.files[0]) reader.readAsDataURL(e.target.files[0]);
+    });
+
+    document.getElementById('logoInput').addEventListener('change', function(e) {
+        const reader = new FileReader();
+        reader.onload = function() {
+            clinicLogo = reader.result;
+            updateLogoPreview();
+        }
+        reader.readAsDataURL(e.target.files[0]);
+    });
+
+    function updateLogoPreview() {
+        if (clinicLogo) {
+            document.getElementById('logo-preview').innerHTML = `<img src="${clinicLogo}" style="max-width:100%; max-height:100%; object-fit:contain;">`;
+        }
+    }
+
+    function saveBranding() {
+        localStorage.setItem('bl11_logo', clinicLogo);
+        alert("Clinic branding saved!");
+    }
+
+    function editStaff(index) {
+        editStaffIndex = index;
+        const s = staff[index];
+        document.getElementById('sName').value = s.name;
+        document.getElementById('sRole').value = s.role;
+        document.getElementById('sLicense').value = s.license;
+        tempStaffPhoto = s.photo || "";
+        if(s.photo) {
+            document.getElementById('staff-photo-preview').innerHTML = `<img src="${s.photo}" style="width:100%; height:100%; object-fit:cover;">`;
+        } else {
+            document.getElementById('staff-photo-preview').innerHTML = `<i class="fa-solid fa-camera" style="opacity: 0.3;"></i>`;
+        }
+        document.getElementById('staff-form-title').innerText = "Edit Staff Profile";
+        document.getElementById('staffSubmitBtn').innerHTML = `<i class="fa-solid fa-user-check"></i> Update Profile`;
+        document.getElementById('staffSubmitBtn').style.background = "var(--warning)";
+        document.getElementById('cancelStaffEdit').style.display = "block";
+        document.getElementById('sForm').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function resetStaffForm() {
+        editStaffIndex = null;
+        tempStaffPhoto = "";
+        document.getElementById('sForm').reset();
+        document.getElementById('staff-form-title').innerText = "Onboard Medical Staff";
+        document.getElementById('staffSubmitBtn').innerHTML = `<i class="fa-solid fa-user-plus"></i> Register Staff`;
+        document.getElementById('staffSubmitBtn').style.background = "var(--primary)";
+        document.getElementById('cancelStaffEdit').style.display = "none";
+        document.getElementById('staff-photo-preview').innerHTML = `<i class="fa-solid fa-camera" style="opacity: 0.3;"></i>`;
+    }
+
+    function refresh() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        
+        document.getElementById('stat-p').innerText = patients.length;
+        document.getElementById('stat-s').innerText = staff.filter(s => s.active).length;
+        document.getElementById('stat-app').innerText = appointments.filter(a => a.date === todayStr).length;
+        document.getElementById('stat-b').innerText = bills.filter(b => b.status === 'Unpaid').length;
+
+        const pOpts = '<option value="">Select Patient</option>' + patients.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+        const sOpts = '<option value="">Assign Staff</option>' + staff.filter(s => s.active).map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        const resStaffOpts = '<option value="">Select Verifying Staff</option>' + staff.map(s => `<option value="${s.name}">${s.name} (${s.role})</option>`).join('');
+
+        document.getElementById('appPatient').innerHTML = pOpts;
+        document.getElementById('resPatient').innerHTML = pOpts;
+        document.getElementById('billPatient').innerHTML = pOpts;
+        document.getElementById('appStaff').innerHTML = sOpts;
+        document.getElementById('resStaff').innerHTML = resStaffOpts;
+
+        document.getElementById('todayBody').innerHTML = appointments.filter(a => a.date === todayStr)
+            .map(a => `<tr><td><b>${a.time}</b></td><td>${a.pName}</td><td>${a.sName}</td><td>${a.service}</td></tr>`).join('');
+
+        document.getElementById('appTableBody').innerHTML = appointments.sort((a,b) => a.date.localeCompare(b.date)).map((a,i) => `
+            <tr><td>${a.date}</td><td>${a.time}</td><td>${a.pName}</td><td>${a.sName}</td><td>${a.service}</td><td><button onclick="delApp(${i})">X</button></td></tr>
+        `).join('');
+
+        document.getElementById('pTableBody').innerHTML = patients.map((p,i) => `
+            <tr><td><a href="#" onclick="viewHistory('${p.id}')" style="font-weight:700; color:var(--primary);">${p.name}</a></td><td>${p.id}</td><td><button onclick="delP(${i})">X</button></td></tr>
+        `).join('');
+
+        // UPDATED LAB RESULTS WITH DELETE BUTTON
+        document.getElementById('resTableBody').innerHTML = results.map((r,i) => `
+            <tr>
+                <td>${r.pName}</td>
+                <td>${r.test}</td>
+                <td>${r.verifiedBy || 'N/A'}</td>
+                <td>
+                    <div style="display:flex; gap:5px;">
+                        <button onclick="genPDF(${i})" style="padding:5px 10px; cursor:pointer; background:var(--primary); color:white; border:none; border-radius:4px;"><i class="fa-solid fa-file-pdf"></i></button>
+                        <button onclick="delRes(${i})" style="padding:5px 10px; cursor:pointer; background:var(--danger); color:white; border:none; border-radius:4px;"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        document.getElementById('staff-grid').innerHTML = staff.map((s, i) => {
+            const workload = appointments.filter(a => a.sName === s.name).length;
+            const avatar = s.photo 
+                ? `<img src="${s.photo}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;">`
+                : `<div style="width: 40px; height: 40px; border-radius: 8px; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; font-weight: 800;">${s.name.charAt(0)}</div>`;
+
+            return `
+            <div class="glass-panel" style="margin-bottom: 0; border-top: 4px solid ${s.active ? 'var(--success)' : 'var(--danger)'}">
+                <div style="padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                        ${avatar}
+                        <div style="display:flex; gap:8px; align-items: center;">
+                            <button onclick="editStaff(${i})" style="background:none; border:none; color:var(--text-muted); cursor:pointer;"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <span class="badge" style="background: ${s.active ? '#ecfdf5' : '#fef2f2'}; color: ${s.active ? 'var(--success)' : 'var(--danger)'}">
+                                ${s.active ? 'ON DUTY' : 'OFF'}
+                            </span>
+                        </div>
+                    </div>
+                    <h3 style="font-size: 1rem;">${s.name}</h3>
+                    <p style="font-size: 0.7rem; color: var(--primary); font-weight: 700;">${s.role.toUpperCase()}</p>
+                    <div style="background: var(--bg); padding: 8px; border-radius: 6px; margin: 10px 0; font-size: 0.75rem;">
+                        <div style="display: flex; justify-content: space-between;"><span>License:</span><span style="font-family: monospace;">${s.license}</span></div>
+                        <div style="display: flex; justify-content: space-between;"><span>Cases:</span><span>${workload}</span></div>
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <button onclick="toggleS(${i})" class="btn-main" style="flex: 1; padding: 6px; font-size: 0.7rem;">Duty</button>
+                        <button onclick="delStaff(${i})" style="color:var(--danger); background:none; border:1px solid var(--border); border-radius:6px; padding:0 10px;">X</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+
+        localStorage.setItem('bl11_p', JSON.stringify(patients));
+        localStorage.setItem('bl11_s', JSON.stringify(staff));
+        localStorage.setItem('bl11_a', JSON.stringify(appointments));
+        localStorage.setItem('bl11_r', JSON.stringify(results));
+        localStorage.setItem('bl11_b', JSON.stringify(bills));
+    }
+
+    document.getElementById('pForm').onsubmit = (e) => { e.preventDefault(); patients.push({ name: document.getElementById('pName').value, id: document.getElementById('pID').value }); e.target.reset(); refresh(); };
+    document.getElementById('appForm').onsubmit = (e) => { e.preventDefault(); const p = patients.find(p => p.id === document.getElementById('appPatient').value); appointments.push({ pName: p.name, pID: p.id, sName: document.getElementById('appStaff').value, date: document.getElementById('appDate').value, time: document.getElementById('appTime').value, service: document.getElementById('appService').value }); e.target.reset(); refresh(); };
+    
+    document.getElementById('sForm').onsubmit = (e) => { 
+        e.preventDefault(); 
+        const staffObj = { 
+            name: document.getElementById('sName').value, 
+            role: document.getElementById('sRole').value, 
+            license: document.getElementById('sLicense').value, 
+            photo: tempStaffPhoto,
+            active: editStaffIndex !== null ? staff[editStaffIndex].active : true 
+        };
+
+        if(editStaffIndex !== null) {
+            staff[editStaffIndex] = staffObj;
+            alert("Staff profile updated!");
+        } else {
+            staff.push(staffObj);
+        }
+        
+        resetStaffForm();
+        refresh(); 
+    };
+    
+    document.getElementById('resForm').onsubmit = (e) => { 
+        e.preventDefault(); 
+        const p = patients.find(p => p.id === document.getElementById('resPatient').value);
+        const s = staff.find(s => s.name === document.getElementById('resStaff').value);
+        results.push({ 
+            pName: p.name, 
+            pID: p.id, 
+            test: document.getElementById('resTest').value, 
+            findings: document.getElementById('resFindings').value, 
+            date: new Date().toLocaleDateString(),
+            verifiedBy: s.name,
+            staffRole: s.role,
+            staffLicense: s.license,
+            rid: Math.floor(1000 + Math.random() * 9000)
+        }); 
+        e.target.reset(); refresh(); 
+    };
+
+    function viewHistory(pid) {
+        const p = patients.find(p => p.id === pid);
+        const pApp = appointments.filter(a => a.pID === pid);
+        const pRes = results.filter(r => r.pID === pid);
+        document.getElementById('hist-name').innerText = p.name;
+        document.getElementById('hist-content').innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;"><div><h4>Schedule</h4>${pApp.map(a => `<p>${a.date} - ${a.service}</p>`).join('') || 'None'}</div><div><h4>Reports</h4>${pRes.map(r => `<p>${r.date}: ${r.test}</p>`).join('') || 'None'}</div></div>`;
+        document.getElementById('overlay').style.display='block'; document.getElementById('history-view').style.display='block';
+    }
+
+    function closeHistory() { document.getElementById('overlay').style.display='none'; document.getElementById('history-view').style.display='none'; }
+    function delP(i) { patients.splice(i,1); refresh(); }
+    function delApp(i) { appointments.splice(i,1); refresh(); }
+    function toggleS(i) { staff[i].active = !staff[i].active; refresh(); }
+    function delStaff(i) { if(confirm("Remove staff?")) { staff.splice(i,1); refresh(); } }
+    
+    // NEW DELETE RESULT FUNCTION
+    function delRes(i) { if(confirm("Delete this lab report permanently?")) { results.splice(i,1); refresh(); } }
+    
+    function genPDF(i) { 
+        const r = results[i]; 
+        document.getElementById('pdf-logo-container').innerHTML = clinicLogo ? `<img src="${clinicLogo}" style="height: 70px;">` : "";
+        document.getElementById('pdf-pname').innerText = r.pName; 
+        document.getElementById('pdf-date').innerText = r.date; 
+        document.getElementById('pdf-test').innerText = r.test.toUpperCase(); 
+        document.getElementById('pdf-findings').innerText = r.findings; 
+        document.getElementById('pdf-rid').innerText = r.rid || '0000';
+        document.getElementById('pdf-sname').innerText = r.verifiedBy || '---';
+        document.getElementById('pdf-srole').innerText = r.staffRole || 'Medical Staff';
+        document.getElementById('pdf-slicense').innerText = r.staffLicense || 'N/A';
+
+        const opt = {
+            margin: 0.5,
+            filename: `LAB_${r.pName}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 3, useCORS: true },
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(document.getElementById('pdf-template')).save(); 
+    }
+
+    setInterval(() => { 
+        document.getElementById('digitalClock').innerText = new Date().toLocaleTimeString(); 
+        document.getElementById('digitalDate').innerText = new Date().toDateString().toUpperCase(); 
+    }, 1000);
+    
+    updateLogoPreview();
+    refresh();
+</script>
+</body>
+</html>
